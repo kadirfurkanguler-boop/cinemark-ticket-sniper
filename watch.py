@@ -46,6 +46,7 @@ MOVIE_ID = str(TARGET["movie_id"])
 MOVIE_NAME = TARGET.get("movie_name", f"movie {MOVIE_ID}")
 TZ = ZoneInfo(TARGET.get("timezone", "UTC"))
 EXCLUDED_ROWS = set(FILTERS.get("excluded_rows", []))
+INCLUDED_ROWS = set(FILTERS.get("included_rows", []))
 EARLIEST = FILTERS.get("earliest_showtime", "00:00")
 LATEST = FILTERS.get("latest_showtime", "23:59")
 PARTY_SIZE = int(FILTERS.get("party_size", 1))
@@ -65,7 +66,8 @@ SHOWTIME_LINK = re.compile(
 )
 # info="F,12,5,9,635630" = row letter, seat number, physical row, column, showtime
 AVAILABLE_SEAT = re.compile(
-    r'<button[^>]*class="seatAvailable seatBlock"[^>]*info="([A-Z]+),(\d+),\d+,(\d+),'
+    r'<button\s[^>]*?\bavailable="True"[^>]*?\binfo="([A-Z]+),(\d+),\d+,(\d+),',
+    re.I,
 )
 
 
@@ -157,7 +159,8 @@ def available_seats(theater_id: str, showtime_id: str, iso: str) -> list[Seat]:
         return []
     return [Seat(row, int(num), int(col))
             for row, num, col in AVAILABLE_SEAT.findall(html)
-            if row not in EXCLUDED_ROWS]
+            if row not in EXCLUDED_ROWS
+            and (not INCLUDED_ROWS or row in INCLUDED_ROWS)]
 
 
 def seat_blocks(seats: list[Seat]) -> list[list[Seat]]:
