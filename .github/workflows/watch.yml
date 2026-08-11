@@ -33,11 +33,14 @@ jobs:
           ./notify-hook "Test alert"
           "The email channel works. A real alert reads 'Seats open 2026-08-08
           7:00pm, F11-F12'. You can close this issue."
+
       - name: probe
+        continue-on-error: true
         run: |
-              curl -sS -o /dev/null -w "status=%{http_code}\n" \
-                -A "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36" \
-                "https://www.cinemark.com/theatres/il-woodridge/cinemark-seven-bridges-and-imax"
+          curl -sS -o /dev/null -w "status=%{http_code}\n" \
+            -A "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36" \
+            "https://www.cinemark.com/theatres/il-woodridge/cinemark-seven-bridges-and-imax"
+
       - name: Run sweep
         if: ${{ !inputs.test_alert }}
         run: python3 watch.py --once
