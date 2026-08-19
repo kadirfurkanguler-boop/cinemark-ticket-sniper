@@ -50,6 +50,8 @@ INCLUDED_ROWS = set(FILTERS.get("included_rows", []))
 EARLIEST = FILTERS.get("earliest_showtime", "00:00")
 LATEST = FILTERS.get("latest_showtime", "23:59")
 PARTY_SIZE = int(FILTERS.get("party_size", 1))
+EARLIEST_DATE = FILTERS.get("earliest_date", "0000-00-00")
+LATEST_DATE = FILTERS.get("latest_date", "9999-99-99")
 REQUEST_GAP = float(PACING.get("request_gap_seconds", 8))
 DATE_SCAN_EVERY = int(PACING.get("date_scan_every", 3))
 POLL_MINUTES = float(PACING.get("poll_minutes", 5))
@@ -206,8 +208,10 @@ def sweep(state: dict, scan_dates: bool, only_dates: list[str] | None) -> None:
 
     if scan_dates or first_run or only_dates or "theater_id" not in state:
         strip = only_dates or DATE_VALUE.findall(fetch(f"{BASE}/theatres/{THEATER}"))
-        dates_to_probe = sorted(set(strip))
-        log(f"date scan: {len(dates_to_probe)} dates on sale, probing each")
+        in_window = {d for d in set(strip) if EARLIEST_DATE <= d <= LATEST_DATE}
+        dates_to_probe = sorted(in_window, reverse=True)
+        log(f"date scan: {len(set(strip))} dates on sale, "
+            f"{len(in_window)} inside window {EARLIEST_DATE}..{LATEST_DATE}")
         for n, date in enumerate(dates_to_probe, 1):
             if state["dates"].get(date, {}).get("showtimes"):
                 log(f"  date {n}/{len(dates_to_probe)} {date}: already tracked, skip")
@@ -231,9 +235,10 @@ def sweep(state: dict, scan_dates: bool, only_dates: list[str] | None) -> None:
 
     watch = [
         (date, sid, iso)
-        for date, info in sorted(state["dates"].items())
+        for date, info in sorted(state["dates"].items(), reverse=True)
         for sid, iso in sorted(info["showtimes"].items(), key=lambda kv: kv[1])
-        if qualifying(iso) and (not only_dates or date in only_dates)
+        if qualifying(iso) and EARLIEST_DATE <= date <= LATEST_DATE
+        and (not only_dates or date in only_dates)
     ]
     log(f"seat scan: {len(watch)} showtimes pass the time filter")
     total = 0
@@ -266,7 +271,8 @@ def sweep(state: dict, scan_dates: bool, only_dates: list[str] | None) -> None:
 def report(state: dict) -> None:
     print(f"\n{MOVIE_NAME} @ {THEATER}")
     print(f"filters: rows {''.join(sorted(EXCLUDED_ROWS)) or 'none'} excluded, "
-          f"shows {EARLIEST}-{LATEST}, party of {PARTY_SIZE}\n")
+          f"shows {EARLIEST}-{LATEST}, party of {PARTY_SIZE}, "
+          f"dates {EARLIEST_DATE}..{LATEST_DATE}\n")
     tracked = {d: v for d, v in sorted(state["dates"].items()) if v["showtimes"]}
     if not tracked:
         print("no dates tracked yet: run a sweep first")
