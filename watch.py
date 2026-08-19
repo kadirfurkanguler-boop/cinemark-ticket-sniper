@@ -109,6 +109,7 @@ def fetch(url: str) -> str:
         except urllib.error.HTTPError as e:
             if e.code not in (429, 403, 500, 502, 503):
                 raise
+            log(f"HTTP {e.code} on {url}")
             try:
                 retry_after = min(int(e.headers.get("Retry-After", "0")), 1800)
             except ValueError:
@@ -200,11 +201,16 @@ def prune_past(state: dict) -> None:
 def sweep(state: dict, scan_dates: bool, only_dates: list[str] | None) -> None:
     first_run = not state["dates"]
     prune_past(state)
+    log(f"sweep start: first_run={first_run}, scan_dates={scan_dates}, "
+        f"party_size={PARTY_SIZE}, window={EARLIEST}-{LATEST}")
 
     if scan_dates or first_run or only_dates or "theater_id" not in state:
         strip = only_dates or DATE_VALUE.findall(fetch(f"{BASE}/theatres/{THEATER}"))
-        for date in sorted(set(strip)):
+        dates_to_probe = sorted(set(strip))
+        log(f"date scan: {len(dates_to_probe)} dates on sale, probing each")
+        for n, date in enumerate(dates_to_probe, 1):
             if state["dates"].get(date, {}).get("showtimes"):
+                log(f"  date {n}/{len(dates_to_probe)} {date}: already tracked, skip")
                 continue  # already tracking; showtime ids are stable
             try:
                 theater_id, shows = showtimes_for(date)
@@ -213,6 +219,7 @@ def sweep(state: dict, scan_dates: bool, only_dates: list[str] | None) -> None:
                 continue
             if theater_id:
                 state["theater_id"] = theater_id
+            log(f"  date {n}/{len(dates_to_probe)} {date}: {len(shows)} showtimes")
             state["dates"][date] = {"showtimes": shows}
             if shows and not first_run:
                 notify(f"New date on sale: {date}",
@@ -228,6 +235,7 @@ def sweep(state: dict, scan_dates: bool, only_dates: list[str] | None) -> None:
         for sid, iso in sorted(info["showtimes"].items(), key=lambda kv: kv[1])
         if qualifying(iso) and (not only_dates or date in only_dates)
     ]
+    log(f"seat scan: {len(watch)} showtimes pass the time filter")
     total = 0
     for i, (date, sid, iso) in enumerate(watch):
         try:
@@ -241,6 +249,10 @@ def sweep(state: dict, scan_dates: bool, only_dates: list[str] | None) -> None:
         state["seats"][sid] = sorted(s.label for s in seats)
         openings = [b for b in seat_blocks(seats)
                     if len(b) >= PARTY_SIZE and any(s.label in fresh for s in b)]
+        biggest = max((len(b) for b in seat_blocks(seats)), default=0)
+        log(f"  {i + 1}/{len(watch)} {date} {fmt_time(iso)}: "
+            f"{len(seats)} free, {len(fresh)} new, biggest block {biggest}"
+            f"{f', {len(openings)} MATCH' if openings else ''}")
         if openings and not first_run:
             notify(f"Seats open {date} {fmt_time(iso)}",
                    f"{MOVIE_NAME}: " + ", ".join(fmt_block(b) for b in openings))
