@@ -43,8 +43,9 @@ jobs:
         run: |
           git config user.name "odyssey-watcher[bot]"
           git config user.email "actions@users.noreply.github.com"
-          touch alerts.log
-          git add -f state.json alerts.log
+          for f in state.json alerts.log; do
+            [ -f "$f" ] && git add -f "$f"
+          done
           if ! git diff --cached --quiet; then
             git commit -m "state: sweep $(date -u '+%Y-%m-%d %H:%M UTC')"
             git pull --rebase --autostash origin main || true
