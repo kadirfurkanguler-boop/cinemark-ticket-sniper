@@ -9,4 +9,4 @@ included_rows = []
 excluded_rows = ["A", "B", "C", "D"]
 earliest_showtime = "00:00"
 latest_showtime = "23:59"
-party_size = 5
+party_size = 2

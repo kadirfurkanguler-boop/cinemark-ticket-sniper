@@ -66,7 +66,8 @@ SHOWTIME_LINK = re.compile(
 )
 # info="F,12,5,9,635630" = row letter, seat number, physical row, column, showtime
 AVAILABLE_SEAT = re.compile(
-    r'<button\s[^>]*?\bavailable="True"[^>]*?\binfo="([A-Z]+),(\d+),\d+,(\d+),',
+    r'<button\s(?=[^>]*\bavailable="True")(?=[^>]*\bseattype="seat")'
+    r'[^>]*\binfo="([A-Z]+),(\d+),\d+,(\d+),',
     re.I,
 )
 
